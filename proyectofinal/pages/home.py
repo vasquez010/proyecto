@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 st.set_page_config(page_title="🐄 Calculadora Ganadera", layout="centered")
 
@@ -95,10 +93,7 @@ if st.button("Calcular valor total"):
 
     # --- Mostrar datos ganaderos originales ---
     st.subheader("🐄 Datos Ganaderos")
-    st.write(f"- Peso inicial por animal: {peso_animal:,.2f} kg")
     st.write(f"- Precio inicial por animal: ${valor_animal_inicial:,.2f}")
-    st.write(f"- Cantidad de animales: {cantidad_animales}")
-    st.write(f"- Puntaje de condiciones productivas: {puntaje_total}")
     st.write(f"- Peso final por animal: {kg_total:,.2f} kg")
     st.write(f"- Precio final por animal según calidad y peso: ${precio_kg_final:,.2f}")
     st.write(f"- Animales vivos tras mortalidad (5%): {animales_vivos:,.2f}")
@@ -124,28 +119,34 @@ if st.button("Calcular valor total"):
             cdt_mensual_pct
         ]
     }
+
     df_comparacion = pd.DataFrame(data)
+
+    # --- Aplicar formato según tipo ---
+    def formatear_valores(val, concepto):
+        if "($)" in concepto:
+            return f"${val:,.2f}"
+        elif "(%)" in concepto:
+            return f"{val:,.2f}%"
+        else:
+            return val
+
+    for i, concepto in enumerate(df_comparacion["Concepto"]):
+        df_comparacion.loc[i, "Inversión Ganadera"] = formatear_valores(
+            df_comparacion.loc[i, "Inversión Ganadera"], concepto)
+        df_comparacion.loc[i, f"CDT ({cdt_mensual_pct:.2f}% mensual)"] = formatear_valores(
+            df_comparacion.loc[i, f"CDT ({cdt_mensual_pct:.2f}% mensual)"], concepto)
+
     st.subheader("📊 Comparación Ganancia Ganadera vs CDT")
-    st.dataframe(df_comparacion.style.format({
-        "Inversión Ganadera": "${:,.2f}", 
-        f"CDT ({cdt_mensual_pct:.2f}% mensual)": "${:,.2f}"
-    }))
+    st.dataframe(df_comparacion)
 
-    # --- Gráfica ---
-    labels = ["Ganancia Ganadera", "Ganancia CDT"]
-    values = [ganancia_mensual, ganancia_cdt_mensual]
-
-    sns.set_style("whitegrid")
-    fig, ax = plt.subplots(figsize=(7,4))
-    bars = ax.bar(labels, values, color=sns.color_palette("Set2", 2))
-    ax.set_ylabel("Ganancia mensual ($)")
-    ax.set_title("Comparación Ganancia Mensual: Ganadera vs CDT", fontsize=14)
-
-    for bar in bars:
-        yval = bar.get_height()
-        ax.text(bar.get_x() + bar.get_width()/2, yval + 0.01*max(values), f"${yval:,.2f}", ha='center', fontsize=11)
-
-    st.pyplot(fig)
+    # --- Gráfica con Streamlit ---
+    st.subheader("📈 Comparación Visual")
+    grafico_data = pd.DataFrame(
+        {"Ganancia mensual ($)": [ganancia_mensual, ganancia_cdt_mensual]},
+        index=["Ganancia Ganadera", "Ganancia CDT"]
+    )
+    st.bar_chart(grafico_data)
 
     # --- Mensaje de rentabilidad ---
     if ganancia_mensual > ganancia_cdt_mensual:
@@ -157,6 +158,3 @@ if st.button("Calcular valor total"):
         "El precio inicial por kg fue ingresado manualmente, "
         "y el precio final se determinó automáticamente según el peso final y la calidad del animal."
     )
-
-
-
